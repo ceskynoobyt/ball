@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bouncing Ball</title>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0f172a;
+    touch-action: none;
+  }
+  canvas { display: block; cursor: default; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  const R = 24;
+  let x = canvas.width / 2;
+  let y = canvas.height / 2;
+  let vx = 5, vy = 5;
+
+  let dragging = false;
+  let lastPointer = null;
+  let flingVx = 0, flingVy = 0;
+
+  function pointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  }
+
+  const onBall = p => Math.hypot(p.x - x, p.y - y) <= R + 12;
+
+  canvas.addEventListener('pointerdown', e => {
+    const p = pointerPos(e);
+    if (!onBall(p)) return;
+    dragging = true;
+    canvas.style.cursor = 'grabbing';
+    canvas.setPointerCapture(e.pointerId);
+    lastPointer = { x: p.x, y: p.y, t: performance.now() };
+    flingVx = flingVy = 0;
+    vx = vy = 0;
+  });
+
+  canvas.addEventListener('pointermove', e => {
+    const p = pointerPos(e);
+    if (dragging) {
+      const now = performance.now();
+      const dt = now - lastPointer.t;
+      if (dt > 0) {
+        const instVx = (p.x - lastPointer.x) / dt * 16.7;
+        const instVy = (p.y - lastPointer.y) / dt * 16.7;
+        flingVx = flingVx * 0.4 + instVx * 0.6;
+        flingVy = flingVy * 0.4 + instVy * 0.6;
+      }
+      lastPointer = { x: p.x, y: p.y, t: now };
+      x = p.x;
+      y = p.y;
+    } else {
+      canvas.style.cursor = onBall(p) ? 'grab' : 'default';
+    }
+  });
+
+  function release() {
+    if (!dragging) return;
+    dragging = false;
+    canvas.style.cursor = 'default';
+    const dt = performance.now() - lastPointer.t;
+    if (dt < 50) {
+      const maxV = 45;
+      vx = Math.max(-maxV, Math.min(maxV, flingVx));
+      vy = Math.max(-maxV, Math.min(maxV, flingVy));
+    }
+  }
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  function step() {
+    if (!dragging) {
+      // gradually slow down (friction)
+      vx *= 0.996;
+      vy *= 0.996;
+      if (Math.abs(vx) < 0.02 && Math.abs(vy) < 0.02) { vx = 0; vy = 0; }
+
+      x += vx;
+      y += vy;
+
+      if (x - R <= 0 && vx < 0) { x = R; vx = -vx * 0.98; }
+      if (x + R >= canvas.width && vx > 0) { x = canvas.width - R; vx = -vx * 0.98; }
+      if (y - R <= 0 && vy < 0) { y = R; vy = -vy * 0.98; }
+      if (y + R >= canvas.height && vy > 0) { y = canvas.height - R; vy = -vy * 0.98; }
+    }
+    draw();
+    requestAnimationFrame(step);
+  }
+
+  function draw() {
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.25)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.beginPath();
+    ctx.arc(x, y, R, 0, Math.PI * 2);
+    const g = ctx.createRadialGradient(x - 8, y - 8, 4, x, y, R);
+    g.addColorStop(0, '#fde68a');
+    g.addColorStop(1, '#f59e0b');
+    ctx.fillStyle = g;
+    ctx.fill();
+  }
+
+  step();
+</script>
+</body>
+</html>
